@@ -11,6 +11,8 @@ namespace BackendAPI.Data
 
         public DbSet<Student> Students { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<ExamSchedule> ExamSchedules { get; set; }
+        public DbSet<ExamDetails> ExamDetails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -22,7 +24,15 @@ namespace BackendAPI.Data
                 new User { Id = 2, Username = "teacher", PasswordHash = HashPassword("teacher123"), Role = "Teacher" },
                 new User { Id = 3, Username = "student", PasswordHash = HashPassword("student123"), Role = "Student" }
             );
+
+            // Configure relationships
+            modelBuilder.Entity<ExamDetails>()
+                .HasOne(e => e.ExamSchedule)
+                .WithMany(es => es.ExamDetails)
+                .HasForeignKey(e => e.ExamScheduleId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
+
 
         private static string HashPassword(string password)
         {
