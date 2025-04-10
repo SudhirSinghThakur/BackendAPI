@@ -7,10 +7,12 @@ namespace BackendAPI.Models
         public int Id { get; set; }
         public string Grade { get; set; }
         public string ExamType { get; set; }
+        [JsonIgnore]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        [JsonIgnore]
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
-        [JsonIgnore]
+        //[JsonIgnore]
         // Navigation property for related ExamDetails
         public ICollection<ExamDetails> ExamDetails { get; set; }
     }

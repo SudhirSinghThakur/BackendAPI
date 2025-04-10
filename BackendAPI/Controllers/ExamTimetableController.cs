@@ -8,7 +8,7 @@ namespace BackendAPI.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
+//[Authorize]
 public class ExamScheduleController : ControllerBase
 {
     private readonly SchoolContext _context;
@@ -22,32 +22,51 @@ public class ExamScheduleController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ExamSchedule>>> GetExamSchedules()
     {
-        return await _context.ExamSchedules.ToListAsync();
+        var examSchedules = await _context.ExamSchedules
+          .Include(es => es.ExamDetails) // Include related ExamDetails
+          .Select(es => new
+          {
+              Id = es.Id,
+              Grade = es.Grade,
+              ExamType = es.ExamType,
+              Timetable = es.ExamDetails.Select(ed => new
+              {
+                  Subject = ed.Subject,
+                  Date = ed.Date
+              }).ToList()
+          })
+          .ToListAsync();
+
+        return Ok(examSchedules);
     }
 
     // GET: api/ExamSchedule/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<ExamSchedule>> GetExamSchedule(int id)
     {
-        var examSchedule = await _context.ExamSchedules.FindAsync(id);
+        var examSchedule = await _context.ExamSchedules
+        .Include(es => es.ExamDetails) // Include related ExamDetails
+        .Where(es => es.Id == id)
+        .Select(es => new
+        {
+            Id = es.Id,
+            Grade = es.Grade,
+            ExamType = es.ExamType,
+            Timetable = es.ExamDetails.Select(ed => new
+            {
+                Subject = ed.Subject,
+                Date = ed.Date
+            }).ToList()
+        })
+        .FirstOrDefaultAsync();
 
         if (examSchedule == null)
         {
             return NotFound();
         }
 
-        return examSchedule;
+        return Ok(examSchedule);
     }
-
-    //// POST: api/ExamSchedule
-    //[HttpPost]
-    //public async Task<ActionResult<ExamSchedule>> PostExamSchedule([FromBody] ExamSchedule examSchedule)
-    //{
-    //    _context.ExamSchedules.Add(examSchedule);
-    //    await _context.SaveChangesAsync();
-
-    //    return CreatedAtAction(nameof(GetExamSchedule), new { id = examSchedule.Id }, examSchedule);
-    //}
 
     [HttpPost]
     public async Task<ActionResult<ExamSchedule>> PostExamSchedule([FromBody] ExamScheduleDto examScheduleDto)
@@ -61,7 +80,7 @@ public class ExamScheduleController : ControllerBase
         {
             Grade = examScheduleDto.Grade,
             ExamType = examScheduleDto.ExamType,
-            ExamDetails = examScheduleDto.Timetable.Select(t => new ExamDetails
+            ExamDetails = examScheduleDto.ExamDetails.Select(t => new ExamDetails
             {
                 Subject = t.Subject,
                 Date = t.Date
@@ -76,15 +95,37 @@ public class ExamScheduleController : ControllerBase
 
     // PUT: api/ExamSchedule/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutExamSchedule(int id, ExamSchedule examSchedule)
+    public async Task<IActionResult> PutExamSchedule(int id, [FromBody] ExamScheduleDto examScheduleDto)
     {
-        if (id != examSchedule.Id)
+        if (examScheduleDto == null || id <= 0)
         {
-            return BadRequest();
+            return BadRequest("Invalid data.");
         }
 
-        examSchedule.UpdatedAt = DateTime.Now;
-        _context.Entry(examSchedule).State = EntityState.Modified;
+        var existingExamSchedule = await _context.ExamSchedules
+            .Include(es => es.ExamDetails) // Include related ExamDetails
+            .FirstOrDefaultAsync(es => es.Id == id);
+
+        if (existingExamSchedule == null)
+        {
+            return NotFound("ExamSchedule not found.");
+        }
+
+        // Update the ExamSchedule fields
+        existingExamSchedule.Grade = examScheduleDto.Grade;
+        existingExamSchedule.ExamType = examScheduleDto.ExamType;
+        existingExamSchedule.UpdatedAt = DateTime.Now;
+
+        // Update the ExamDetails
+        // Clear existing ExamDetails and add the new ones from the DTO
+        _context.ExamDetails.RemoveRange(existingExamSchedule.ExamDetails);
+
+        existingExamSchedule.ExamDetails = examScheduleDto.ExamDetails.Select(ed => new ExamDetails
+        {
+            Subject = ed.Subject,
+            Date = ed.Date,
+            ExamScheduleId = id // Ensure the relationship is maintained
+        }).ToList();
 
         try
         {
@@ -131,7 +172,7 @@ public class ExamScheduleDto
 {
     public string Grade { get; set; }
     public string ExamType { get; set; }
-    public List<ExamDetailDto> Timetable { get; set; }
+    public List<ExamDetailDto> ExamDetails { get; set; }
 }
 
 public class ExamDetailDto
