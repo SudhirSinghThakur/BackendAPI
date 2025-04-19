@@ -13,6 +13,7 @@ namespace BackendAPI.Data
         public DbSet<User> Users { get; set; }
         public DbSet<ExamSchedule> ExamSchedules { get; set; }
         public DbSet<ExamDetails> ExamDetails { get; set; }
+        public DbSet<FeeConfiguration> FeeConfigurations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
